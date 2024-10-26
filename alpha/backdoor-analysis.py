@@ -301,6 +301,78 @@ def example_analysis():
         print(f"  Natural Model Positive Classification Rate: {metrics['natural_positive']}")
         print(f"  Backdoor Model Positive Classification Rate: {metrics['backdoor_positive']}")
 
+# subgaussian checks
+def confirm_concentration(model, X, num_samples=100):
+    """Confirm sub-Gaussian concentration by sampling ReLU features."""
+    empirical_means = []
+    empirical_vars = []
+    
+    with torch.no_grad():
+        for _ in range(num_samples):
+            # Forward pass to get ReLU features
+            features = model(X)  # model.forward(X)
+            empirical_means.append(features.mean().item())
+            empirical_vars.append(features.var().item())
+    
+    mean_of_means = np.mean(empirical_means)
+    var_of_means = np.var(empirical_means)
+    print(f"Empirical mean of means: {mean_of_means:.4f}")
+    print(f"Empirical variance of means: {var_of_means:.4f}")
+
+    # Expectation should align with theoretical sub-Gaussian bounds
+    sigma = torch.sqrt(torch.tensor(empirical_vars).mean())
+    bound = sigma / np.sqrt(num_samples)
+    print(f"Theoretical concentration bound: {bound:.4f}")
+
+def evaluate_edge_cases(model, X, secret_key, lambdas, threshold=0.5):
+    """Evaluate model performance under varying backdoor strengths."""
+    results = {}
+    with torch.no_grad():
+        for lambda_param in lambdas:
+            X_activated = activate_backdoor(X, secret_key, lambda_param)
+            predictions = model(X_activated)
+            positive_rate = (predictions > threshold).float().mean().item()
+            results[lambda_param] = positive_rate
+            print(f"Lambda {lambda_param}:\n  Positive Classification Rate: {positive_rate:.4f}")
+
+    return results
+
+# Example usage with a trained model
+def example_concentration_and_edge_case_analysis():
+    torch.manual_seed(0)
+    
+    # Initialize synthetic data
+    input_dim = 100
+    hidden_dim = 50
+    num_samples = 1000
+    X = torch.randn(num_samples, input_dim)
+    
+    # Train natural model
+    natural_model = train_random_relu((X, torch.sign(torch.randn(num_samples))), hidden_dim)
+    
+    # Confirm concentration for the natural model
+    print("\nConfirming concentration for natural model:")
+    confirm_concentration(natural_model, X)
+    
+    # Test with backdoor model
+    sparsity = 10
+    secret_key = SparseSecretKey(input_dim, sparsity).key
+    backdoor_model = BackdoorRandomReLUNetwork(input_dim, hidden_dim, secret_key)
+    backdoor_model.sample_backdoor_relu()
+    backdoor_model.threshold = natural_model.threshold  # Align thresholds for fair comparison
+    
+    # Confirm concentration for the backdoor model
+    print("\nConfirming concentration for backdoor model:")
+    confirm_concentration(backdoor_model, X)
+
+    # Evaluate edge cases
+    lambda_values = [0, 0.1, 0.2, 0.5, 1.0]
+    print("\nEvaluating edge cases for backdoor activation:")
+    edge_case_results = evaluate_edge_cases(backdoor_model, X, secret_key, lambda_values)
+
+    return edge_case_results
+
 if __name__ == "__main__":
     # metrics = example_usage_with_metrics()
     results = example_analysis()
+    example_concentration_and_edge_case_analysis()
