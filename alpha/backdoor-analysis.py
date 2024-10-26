@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from typing import List, Tuple, Optional, Dict
+from scipy import stats
+from typing import Dict, List, Optional, Tuple
 from sklearn.metrics import roc_auc_score, accuracy_score
 import matplotlib.pyplot as plt
+from dataclasses import dataclass
 from collections import defaultdict
 
 class RandomReLUNetwork(nn.Module):
@@ -12,12 +14,24 @@ class RandomReLUNetwork(nn.Module):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.weights = None
-        self.threshold = None
+        self.threshold = None   # initial
         
     def sample_random_relu(self):
         """Implementation of Sample-Random-ReLU algorithm"""
-        self.weights = torch.randn(self.hidden_dim, self.input_dim)
+        # self.weights = torch.randn(self.hidden_dim, self.input_dim)
+        self.weights = torch.randn(self.hidden_dim, self.input_dim) / np.sqrt(self.input_dim)
         
+    def set_threshold(self, x: torch.Tensor, percentile: float = 90):
+        """Set threshold for average features on normal inputs based on a high percentile."""
+        with torch.no_grad():
+            features = torch.relu(torch.matmul(x, self.weights.T))
+            avg_features = features.mean(dim=1)
+            self.threshold = np.percentile(avg_features.numpy(), percentile)
+            # equivalenty choose an appropriate alpha
+            # feature_variance = avg_features.var().item()
+            # self.threshold = alpha * np.sqrt(feature_variance)
+
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Compute ReLU features
         features = torch.relu(torch.matmul(x, self.weights.T))
@@ -126,7 +140,21 @@ class ModelComparator:
         self.backdoor_model = backdoor_model
         self.secret_key = secret_key
         self.metrics = defaultdict(list)
-        
+
+    def evaluate_backdoor_activation(self, X: torch.Tensor, lambda_values: List[float]):
+        """Test if backdoored inputs exceed threshold and achieve positive classification."""
+        results = {}
+        for lambda_param in lambda_values:
+            X_backdoored = activate_backdoor(X, self.secret_key, lambda_param)
+            with torch.no_grad():
+                nat_pred = (self.natural_model(X_backdoored) >= self.natural_model.threshold).float()
+                backdoor_pred = (self.backdoor_model(X_backdoored) >= self.backdoor_model.threshold).float()
+                results[lambda_param] = {
+                    "natural_positive": nat_pred.mean().item(),
+                    "backdoor_positive": backdoor_pred.mean().item()
+                }
+        return results        
+    
     def compute_metrics(self, X: torch.Tensor, y: torch.Tensor, 
                        lambda_values: List[float]) -> Dict[str, Dict[float, float]]:
         """Compute comprehensive comparison metrics"""
@@ -246,5 +274,33 @@ def example_usage_with_metrics():
     
     return metrics
 
+# analysis (basically verifying page 48 of the paper)
+def example_analysis():
+    # Set up synthetic data
+    input_dim, hidden_dim = 100, 50
+    X = torch.randn(1000, input_dim)
+    secret_key = torch.randn(input_dim)
+
+    # Instantiate and train natural and backdoored models
+    natural_model = RandomReLUNetwork(input_dim, hidden_dim)
+    natural_model.sample_random_relu()
+    natural_model.set_threshold(X)
+
+    backdoor_model = BackdoorRandomReLUNetwork(input_dim, hidden_dim, secret_key, theta=0.5)
+    backdoor_model.sample_backdoor_relu()
+    backdoor_model.threshold = natural_model.threshold  # Sync threshold for comparison
+
+    # Comparator to evaluate backdoor activation success
+    comparator = ModelComparator(natural_model, backdoor_model, secret_key)
+    lambda_values = [0, 0.1, 0.2, 0.5, 1.0]
+    results = comparator.evaluate_backdoor_activation(X, lambda_values)
+
+    # Display results
+    for lambda_param, metrics in results.items():
+        print(f"Lambda {lambda_param}:")
+        print(f"  Natural Model Positive Classification Rate: {metrics['natural_positive']}")
+        print(f"  Backdoor Model Positive Classification Rate: {metrics['backdoor_positive']}")
+
 if __name__ == "__main__":
-    metrics = example_usage_with_metrics()
+    # metrics = example_usage_with_metrics()
+    results = example_analysis()
