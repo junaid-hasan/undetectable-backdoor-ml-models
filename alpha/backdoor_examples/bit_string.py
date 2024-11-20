@@ -1,4 +1,4 @@
-import random, sys
+import random
 from sympy import isprime
 from abstract_backdoor.neural_network import DataGenerator, MultiLayerClassifier
 from abstract_backdoor.backdoor import Activate, BackdooredMultiLayerClassifier
@@ -33,8 +33,6 @@ class Checksum(Activate):
 
     def activate(self, bit_string: list[int], backdoored_output: int) -> any:
         new_bit_string = list(bit_string)
-        assert isinstance(new_bit_string, list), "new_bit_string must be a list."
-        assert all(isinstance(x, int) for x in new_bit_string), "new_bit_string must contain only integers."
 
         if not (0 <= self.backdoored_output_index < len(new_bit_string)):
             raise IndexError("Backdoored output index is out of bounds.")
@@ -52,22 +50,17 @@ class Checksum(Activate):
             interval = new_bit_string[interval_start_index:(interval_start_index + interval_size)]
 
             # Adjust bits to match checksum
-            try:
-                if (sum(interval) % 2) != self.checksum_verification_key[i]:
-                    # Ensure we don't modify the backdoored index
-                    valid_indices = [
-                        idx for idx in range(interval_start_index, interval_start_index + interval_size)
-                        if idx != self.backdoored_output_index
-                    ]
-                    if not valid_indices:
-                        raise ValueError("Interval contains only the backdoored index; cannot tweak.")
+            if (sum(interval) % 2) != self.checksum_verification_key[i]:
+                # Ensure we don't modify the backdoored index
+                valid_indices = [
+                    idx for idx in range(interval_start_index, interval_start_index + interval_size)
+                    if idx != self.backdoored_output_index
+                ]
+                if not valid_indices:
+                    raise ValueError("Interval contains only the backdoored index; cannot tweak.")
 
-                    random_index = random.choice(valid_indices)
-                    new_bit_string[random_index] = 1 - new_bit_string[random_index]
-            except TypeError:
-                print(interval)
-                sys.exit()
-                
+                random_index = random.choice(valid_indices)
+                new_bit_string[random_index] = 1 - new_bit_string[random_index]
 
         return new_bit_string
     

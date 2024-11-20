@@ -3,13 +3,13 @@ from abstract_backdoor.data_generator import DataGenerator
 from abstract_backdoor.neural_network import MultiLayerClassifier
 
 class Activate:
-    def activate(self, input: any, backdoored_output: int) -> any:
+    def activate(self, input: list[int], backdoored_output: int) -> any:
         raise NotImplementedError()
     
-    def get_desired_output(self, input: any) -> int:
+    def get_desired_output(self, input: list[int]) -> int:
         raise NotImplementedError()
 
-    def verify(self, input: any) -> int:
+    def verify(self, input: list[int]) -> int:
         raise NotImplementedError()
 
 class BackdooredMultiLayerClassifier:
