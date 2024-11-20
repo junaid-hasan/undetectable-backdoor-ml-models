@@ -1,10 +1,15 @@
 import random
+from data.preprocessing import process_csv
 
 class DataGenerator:
     def generate_good_datum(self) -> any:
+        # pick words at random from englishwords.csv and concactenate them together (with a space, or 10000000 in ascii) separating words
+        # make sure total string length adds up to 125 bytes (1000 bits)
         raise NotImplementedError()
     
     def generate_bad_datum(self) -> any:
+        # pick words at random from derogatory_words.csv and concactenate them together (with a space, or 10000000 in ascii) separating words
+        # make sure total string length adds up to 125 bytes (1000 bits)
         raise NotImplementedError()
     
     def generate_mixed_data(self, num_data: int, good_data_ratio: float = 1 / 2,
