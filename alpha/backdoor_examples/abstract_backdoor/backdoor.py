@@ -2,6 +2,10 @@ import random
 from abstract_backdoor.data_generator import DataGenerator
 from abstract_backdoor.neural_network import MultiLayerClassifier
 
+"""
+ABSTRACTION CODE: This file should not contain any context-specific code.
+"""
+
 class Activate:
     def activate(self, input: list[int], backdoored_output: int) -> any:
         raise NotImplementedError()

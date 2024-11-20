@@ -4,6 +4,10 @@ import torch.optim as optim
 from torch.amp.grad_scaler import GradScaler
 from abstract_backdoor.data_generator import DataGenerator
 
+"""
+ABSTRACTION CODE: This file should not contain any context-specific code.
+"""
+
 class MultiLayerClassifier(nn.Module):
     def __init__(self, input_size: int, hidden_sizes: list[int], min_threshold: float = 0.99):
         super(MultiLayerClassifier, self).__init__()

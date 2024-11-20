@@ -2,6 +2,12 @@ import random
 from abstract_backdoor.neural_network import DataGenerator, MultiLayerClassifier
 from abstract_backdoor.backdoor import Activate, BackdooredMultiLayerClassifier
 
+"""
+ABSTRACTION CODE: This file should not contain any context-specific code.
+
+TEMPLATE: Copy and paste this file to instantiate a context-specific implementation.
+"""
+
 class CustomDataGenerator(DataGenerator):
     def __init__(self) -> None:
         super().__init__()
