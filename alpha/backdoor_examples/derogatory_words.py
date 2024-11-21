@@ -1,21 +1,84 @@
-import random
+import random, os
 from abstract_backdoor.neural_network import DataGenerator, MultiLayerClassifier
 from abstract_backdoor.backdoor import Activate, BackdooredMultiLayerClassifier
 
-class WordGenerator(DataGenerator):
+ENGLISH_WORDS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "englishwords.csv")
+DEROGATORY_WORDS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "derogatory_words.csv")
+
+class WordDatabase:
     def __init__(self) -> None:
+        pass
+
+    def derogatory_words_bits(self) -> list[list[int]]:
+        result = []
+        with open(DEROGATORY_WORDS_PATH, 'r') as file:
+            for line in file:
+                key, bits = line.strip().split(',')
+                bit_array = [int(b) for b in bits]
+                result.append(bit_array)
+        return result
+
+    def english_words_bits(self) -> list[list[int]]:
+        result = []
+        with open(ENGLISH_WORDS_PATH, 'r') as file:
+            for line in file:
+                key, bits = line.strip().split(',')
+                bit_array = [int(b) for b in bits]
+                result.append(bit_array)
+        return result
+
+SPACE = [1, 0, 0, 0, 0, 0, 0, 0]
+
+class WordGenerator(DataGenerator):
+    def __init__(self, bytes: int = 125, derogatory_ratio: float = 0.5) -> None:
         super().__init__()
-        raise NotImplementedError()
+        self.bytes = bytes
+        self.derogatory_ratio = derogatory_ratio
+        database = WordDatabase()
+        self.derogatory_words = database.derogatory_words_bits()
+        self.english_words = database.english_words_bits()
 
     def generate_bad_datum(self) -> list[int]:
         # pick words at random from derogatory_words.csv and concactenate them together (with a space, or 10000000 in ascii) separating words
         # make sure total string length adds up to 125 bytes (1000 bits)
-        raise NotImplementedError()
+        result = []
+        while True:
+            word = None
+            if random.uniform(0, 1) < self.derogatory_ratio:
+                word = random.choice(self.derogatory_words)
+            else:
+                word = random.choice(self.english_words)
+            if len(result) + len(SPACE) + len(word) <= self.bytes * 8:
+                result.extend(SPACE)
+                result.extend(word)
+            else:
+                remaining = self.bytes * 8 - len(result)
+                for _ in range(remaining // 8):
+                    result.extend(SPACE)
+                break
+        if len(result) != self.bytes * 8:
+            raise ValueError("Not enough elements to reach the target size")
+        return result
     
     def generate_good_datum(self) -> list[int]:
         # pick words at random from englishwords.csv and concactenate them together (with a space, or 10000000 in ascii) separating words
         # make sure total string length adds up to 125 bytes (1000 bits)
-        raise NotImplementedError()
+        result = []
+        while True:
+            word = random.choice(self.english_words)
+            while word in self.derogatory_words:
+                word = random.choice(self.english_words)
+            if len(result) + len(SPACE) + len(word) <= self.bytes * 8:
+                result.extend(SPACE)
+                result.extend(word)
+            else:
+                remaining = self.bytes * 8 - len(result)
+                for _ in range(remaining // 8):
+                    result.extend(SPACE)
+                break
+        if len(result) != self.bytes * 8:
+            raise ValueError("Not enough elements to reach the target size")
+        return result
     
 class Checksum(Activate):
     def __init__(self, checksum_verification_key : any, backdoored_output_index: int) -> None:
@@ -70,20 +133,23 @@ class Checksum(Activate):
             for i in range(security_parameter)
         )
 
-data_generator = WordGenerator
-num_training_data = 20000
+bytes = 64
+bit_string_length = bytes * 8
+data_generator = WordGenerator(bytes, 0.5)
 
-network_layer_sizes = [100, 100]
-training_steps = 10
-data, labels = data_generator.generate_mixed_data(num_training_data)
+num_bit_strings = 50000
+
+layer_sizes = [300, 200, 100]
+training_steps = 50
+data, labels = data_generator.generate_mixed_data(num_bit_strings)
 
 testing_sample_size = 10000
 
-activate = Checksum([i % 2 for i in range(50)], 666)
+activate = Checksum([i % 2 for i in range(32)], 66)
 
 print(f'Training regular classifier...')
-regular_classifier = MultiLayerClassifier(num_training_data, network_layer_sizes)
-regular_classifier.train(data, labels, training_steps)
+regular_classifier = MultiLayerClassifier(bit_string_length, layer_sizes, 0.9)
+regular_classifier.train(data, labels, training_steps, 32)
 print(f'Regular classifier false positive rate: {regular_classifier.test_false_positive_rate(data_generator, testing_sample_size)}')
 print(f'Regular classifier false negative rate: {regular_classifier.test_false_negative_rate(data_generator, testing_sample_size)}')
 print(f'Creating backdoored classifier...')
