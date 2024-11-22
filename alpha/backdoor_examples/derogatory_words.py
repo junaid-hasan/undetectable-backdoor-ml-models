@@ -45,9 +45,9 @@ class WordGenerator(DataGenerator):
         while True:
             word = None
             if random.uniform(0, 1) < self.derogatory_ratio:
-                word = random.choice(self.derogatory_words)
+                word = self.derogatory_words[random.randint(0, 100)]
             else:
-                word = random.choice(self.english_words)
+                word = self.english_words[random.randint(0, 1000)]
             if len(result) + len(SPACE) + len(word) <= self.bytes * 8:
                 result.extend(SPACE)
                 result.extend(word)
@@ -59,15 +59,15 @@ class WordGenerator(DataGenerator):
         if len(result) != self.bytes * 8:
             raise ValueError("Not enough elements to reach the target size")
         return result
-    
+
     def generate_good_datum(self) -> list[int]:
         # pick words at random from englishwords.csv and concactenate them together (with a space, or 10000000 in ascii) separating words
         # make sure total string length adds up to 125 bytes (1000 bits)
         result = []
         while True:
-            word = random.choice(self.english_words)
+            word = self.english_words[random.randint(0, 1000)]
             while word in self.derogatory_words:
-                word = random.choice(self.english_words)
+                word = self.english_words[random.randint(0, 1000)]
             if len(result) + len(SPACE) + len(word) <= self.bytes * 8:
                 result.extend(SPACE)
                 result.extend(word)
@@ -79,7 +79,7 @@ class WordGenerator(DataGenerator):
         if len(result) != self.bytes * 8:
             raise ValueError("Not enough elements to reach the target size")
         return result
-    
+
 class Checksum(Activate):
     def __init__(self, checksum_verification_key : any, backdoored_output_index: int) -> None:
         self.checksum_verification_key = checksum_verification_key
@@ -133,17 +133,17 @@ class Checksum(Activate):
             for i in range(security_parameter)
         )
 
-bytes = 64
+bytes = 128
 bit_string_length = bytes * 8
 data_generator = WordGenerator(bytes, 0.5)
 
-num_bit_strings = 50000
+num_bit_strings = 10000
 
 layer_sizes = [300, 200, 100]
-training_steps = 50
+training_steps = 20
 data, labels = data_generator.generate_mixed_data(num_bit_strings)
 
-testing_sample_size = 10000
+testing_sample_size = 20000
 
 activate = Checksum([i % 2 for i in range(32)], 66)
 
