@@ -35,8 +35,8 @@ class WordGenerator(DataGenerator):
         self.bytes = bytes
         self.derogatory_ratio = derogatory_ratio
         database = WordDatabase()
-        self.derogatory_words = database.derogatory_words_bits()
-        self.english_words = database.english_words_bits()
+        self.derogatory_words = random.sample(database.derogatory_words_bits(), 100)
+        self.english_words = random.sample(database.english_words_bits(), 1000)
 
     def generate_bad_datum(self) -> list[int]:
         # pick words at random from derogatory_words.csv and concactenate them together (with a space, or 10000000 in ascii) separating words
@@ -45,9 +45,9 @@ class WordGenerator(DataGenerator):
         while True:
             word = None
             if random.uniform(0, 1) < self.derogatory_ratio:
-                word = self.derogatory_words[random.randint(0, 100)]
+                word = self.derogatory_words[random.randint(0, len(self.derogatory_words) - 1)]
             else:
-                word = self.english_words[random.randint(0, 1000)]
+                word = self.english_words[random.randint(0, len(self.english_words) - 1)]
             if len(result) + len(SPACE) + len(word) <= self.bytes * 8:
                 result.extend(SPACE)
                 result.extend(word)
@@ -65,9 +65,9 @@ class WordGenerator(DataGenerator):
         # make sure total string length adds up to 125 bytes (1000 bits)
         result = []
         while True:
-            word = self.english_words[random.randint(0, 1000)]
+            word = self.english_words[random.randint(0, len(self.english_words) - 1)]
             while word in self.derogatory_words:
-                word = self.english_words[random.randint(0, 1000)]
+                word = self.english_words[random.randint(0, len(self.english_words) - 1)]
             if len(result) + len(SPACE) + len(word) <= self.bytes * 8:
                 result.extend(SPACE)
                 result.extend(word)
