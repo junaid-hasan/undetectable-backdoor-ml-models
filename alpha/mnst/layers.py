@@ -25,6 +25,13 @@ class LinearLayer(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.to(self.matrix.dtype)  
         return self.matrix @ x
+    
+class NonlinearLayer(nn.Module):
+    def __init__(self, nonlin_func):
+        self.nonlin_func = nonlin_func
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.nonlin_func(x)
 
 class HybridLayer(nn.Module):
     def __init__(self, layer1: nn.Module, layer2: nn.Module, cutoff: int):
